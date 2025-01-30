@@ -10,10 +10,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-mongoose.connect('mongodb://localhost:27017/crowdfunding', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+mongoose.connect("mongodb+srv://Prishasanthosh:prishasanthosh@cluster0.udjjrkz.mongodb.net/").then(() => {
+  console.log("Connected to database");
+})
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
