@@ -3,6 +3,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt= require("bcrypt");
+const jwt=require("jsonwebtoken");
+const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,22 +34,71 @@ const CampaignSchema = new mongoose.Schema({
 
 const Campaign = mongoose.model('Campaign', CampaignSchema);
 
+
 app.get('/', (req, res) => {
     res.send('Server is running');
   });
 
-app.post('/api/campaigns', async (req, res) => {
-    try {
-      const campaigns = req.body; 
-      if (!Array.isArray(campaigns)) {
-        return res.status(400).json({ error: "Request body must be an array of campaigns" });
-      }
-      const createdCampaigns = await Campaign.insertMany(campaigns);
-      res.status(201).json(createdCampaigns);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
+const userSchema = new mongoose.Schema({
+  id: String,
+  email : String, 
+  password : String,
+})
+const User=mongoose.model("User",userSchema);
+  
+app.post("/signup",async(req,res)=>{
+  const {email, password}=req.body;
+  try{
+    const user=await User.findOne({email});
+    if(user){
+      return res.status(400).json({message:"Email alreadt exists"});
     }
-  });
+    const hashedPassword=await bcrypt.hash(password,10);
+    const newUser=new User({
+      id:uuidv4(),
+      email,
+      password: hashedPassword,
+    })
+    await newUser.save();
+    res.json({message:"User created successfully"});
+  }
+  catch(error){
+    res.status(500).json({message:"Internal Server Error"})
+  }
+})
+
+app.post("/login",async(req,res)=>{
+  const {email, password}=req.body;
+  try{
+    const user=await User.findOne({email});
+    if(!user){
+      return res.status(400).json({message:"Invalid email"});
+    }
+    const isValidPassword=await bcrypt.compare(password,user.password);
+    if(!isValidPassword){
+      return res.status(400).json({message: "Invalid password"});
+    }
+    const token=jwt.sign({id:user.id},"secret_key",{expiresIn:"1h"});
+    res.status(200).json(token);
+  } catch(error) {
+    return res.status(500).json({message:"Internal Server Error"});
+  }
+})
+
+app.post('/api/campaigns', async (req, res) => {
+  const { title, description, goalAmount } = req.body;
+  try {
+      const newCampaign = new Campaign({
+          title,
+          description,
+          goalAmount
+      });
+      const savedCampaign = await newCampaign.save();
+      res.status(201).json(savedCampaign);
+  } catch (error) {
+      res.status(500).json({ message: "Error in creating campaign" });
+  }
+});
 
 app.get('/api/campaigns', async (req, res) => {
   try {
